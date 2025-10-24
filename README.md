@@ -1,139 +1,107 @@
-# NetNut Multi-Cloud Infrastructure
+# Infrastructure as Code - Multi-Cloud Kubernetes
 
-This project demonstrates the implementation of identical Kubernetes infrastructure on two cloud platforms: AWS (EKS) and Azure (AKS) using Terraform, Terragrunt, and Helm.
+This repository contains Terraform modules for deploying Kubernetes infrastructure on AWS (EKS) and Azure (AKS) with ingress controllers and sample applications.
 
-## 🏗️ Architecture
-
-### AWS (EKS)
-```
-S3 Bucket (Terraform State)
-  → VPC (10.0.0.0/16)
-    → EKS 1.34 + Pod Identity
-      → ALB Controller (EKS Pod Identity)
-        → Hello-World App (Helm)
-```
-
-### Azure (AKS)
-```
-Storage Account (Terraform State)
-  → VNet (10.1.0.0/16)
-    → AKS + Workload Identity
-      → AGIC (Application Gateway Ingress Controller)
-        → Hello-World App (Helm)
-```
-
-## 📁 Project Structure
+## Structure
 
 ```
-netnut/
-├── aws/                          # AWS Infrastructure
-│   ├── bootstrap/               # S3 bucket for Terraform state
-│   ├── infrastructure/          # VPC + EKS
-│   │   ├── modules/
-│   │   │   ├── vpc/            # VPC, subnets, NAT Gateway
-│   │   │   └── eks/            # EKS cluster + node group
-│   │   └── outputs.tf          # Outputs for kubernetes layer
-│   ├── kubernetes/             # ALB Controller + Hello-World
-│   │   ├── alb-controller.tf   # AWS Load Balancer Controller
-│   │   ├── addons.tf           # EKS Pod Identity Agent
-│   │   └── hello-world.tf      # Hello-World application
-│   └── terragrunt.hcl          # Root Terragrunt config
-├── azure/                       # Azure Infrastructure
-│   ├── bootstrap/              # Storage Account for Terraform state
-│   ├── infrastructure/         # VNet + AKS + Application Gateway
-│   │   ├── modules/
-│   │   │   ├── vnet/          # Virtual Network + subnets
-│   │   │   └── aks/           # AKS cluster
-│   │   ├── appgw.tf           # Application Gateway
-│   │   └── outputs.tf         # Outputs for kubernetes layer
-│   ├── kubernetes/            # AGIC + Hello-World
-│   │   ├── agic.tf            # Application Gateway Ingress Controller
-│   │   └── hello-world.tf     # Hello-World application
-│   └── terragrunt.hcl         # Root Terragrunt config
-└── charts/                     # Shared Helm charts
-    └── hello-world/           # Hello-World application
-        ├── Chart.yaml
-        ├── values.yaml
-        └── templates/
-            ├── deployment.yaml
-            ├── service.yaml
-            └── ingress.yaml
+.
+├── modules/
+│   ├── network/
+│   │   ├── aws/              # VPC for AWS
+│   │   └── azure/            # VNet for Azure
+│   ├── kubernetes/
+│   │   ├── aws/              # EKS + ALB Controller + addons
+│   │   └── azure/            # AKS + Application Gateway + AGIC
+│   └── applications/
+│       └── hello-world/      # Sample hello-world application
+├── infrastructure/
+│   ├── aws/                  # AWS environment
+│   └── azure/                # Azure environment
+└── charts/
+    └── hello-world/          # Helm chart for hello-world app
 ```
 
-## 🚀 Deployment
-
-### AWS
-
-1. **Bootstrap** (S3 bucket):
-```bash
-cd aws/bootstrap
-terragrunt apply
-```
-
-2. **Infrastructure** (VPC + EKS):
-```bash
-cd aws/infrastructure
-terragrunt apply
-```
-
-3. **Kubernetes** (ALB Controller + Hello-World):
-```bash
-cd aws/kubernetes
-terragrunt apply
-```
-
-### Azure
-
-1. **Bootstrap** (Storage Account):
-```bash
-cd azure/bootstrap
-terragrunt apply
-```
-
-2. **Infrastructure** (VNet + AKS + Application Gateway):
-```bash
-cd azure/infrastructure
-terragrunt apply
-```
-
-3. **Kubernetes** (AGIC + Hello-World):
-```bash
-cd azure/kubernetes
-terragrunt apply
-```
-
-## 🔧 Key Components
-
-### AWS
-- **EKS 1.34** 
-- **EKS Pod Identity Agent** 
-- **AWS Load Balancer Controller** 
-- **ALB** 
-
-### Azure
-- **AKS 1.34** 
-- **Application Gateway** 
-- **AGIC** 
-- **Workload Identity**
-
-### Shared
-- **Hello-World application** (Helm chart)
-- **Terragrunt**
-
-## 📋 Requirements
+## Prerequisites
 
 - Terraform >= 1.0
-- Terragrunt >= 0.50
-- AWS CLI (for AWS)
-- Azure CLI (for Azure)
+- AWS CLI (for AWS deployment)
+- Azure CLI (for Azure deployment)
 - kubectl
 - helm
 
-## 🎯 Project Goal
+## Quick Start
 
-Demonstration of implementing identical functionality on two different cloud platforms using:
-- Infrastructure as Code (Terraform)
-- Orchestration (Terragrunt)
-- Package management (Helm)
-- Modern authentication (Pod Identity / Workload Identity)
-- Minimalist architecture
+### AWS Deployment
+
+```bash
+cd infrastructure/aws
+terraform init
+terraform plan
+terraform apply
+```
+
+### Azure Deployment
+
+```bash
+cd infrastructure/azure
+terraform init
+terraform plan
+terraform apply
+```
+
+## Module Overview
+
+### Network Modules
+- **network/aws**: Creates VPC with public and private subnets, NAT Gateway, Internet Gateway
+- **network/azure**: Creates VNet with subnets for AKS and Application Gateway
+
+### Kubernetes Modules
+- **kubernetes/aws**: Deploys EKS cluster, node group, addons (CoreDNS, Pod Identity Agent), and AWS Load Balancer Controller
+- **kubernetes/azure**: Deploys AKS cluster, Application Gateway, and AGIC (Application Gateway Ingress Controller)
+
+### Application Modules
+- **applications/hello-world**: Deploys hello-world application using Helm chart with appropriate ingress configuration
+
+### AWS EKS
+```bash
+aws eks update-kubeconfig --region eu-central-1 --name pw-eks
+kubectl get nodes
+```
+
+### Azure AKS
+```bash
+az aks get-credentials --resource-group pw-rg --name pw-aks
+kubectl get nodes
+```
+
+## Accessing the Hello World Application
+
+After deployment, the hello-world application will be accessible via the load balancer:
+
+### AWS
+The ALB DNS name will be in the ingress:
+```bash
+kubectl get ingress -n default
+```
+
+### Azure
+The Application Gateway public IP is outputted:
+```bash
+terraform output hello_world_url
+```
+
+## Cleanup
+
+To destroy all resources:
+
+```bash
+# AWS
+cd infrastructure/aws
+terraform destroy
+
+# Azure
+cd infrastructure/azure
+terraform destroy
+```
+
